@@ -23,7 +23,11 @@ def train(data,params):
         model=getattr(m,params['model'])(**params).cuda(params['gpu'])
     parameters=filter(lambda p:p.requires_grad,model.parameters())
     optimizer=getattr(optim,params['optimizer'])(parameters,params['learning_rate'])
-    criterian=nn.CrossEntropyLoss()
+    if(params['gpu']==-1):
+        weight=Variable(torch.FloatTensor([100,60,6,2,1]))
+    else:
+        weight = Variable(torch.FloatTensor([100,60,6,2,1])).cuda(params['gpu'])
+    criterian=nn.CrossEntropyLoss(weight=weight)
     epochs=[]
     dev_acc_epochs = []
     train_metric_epochs = []
@@ -201,8 +205,8 @@ def main():
     parser.add_argument('--type', default='non-static', help='embedding type, alternative:non-static/static/non-static')
     parser.add_argument('--wv',default='trained',help='vector,trained/cv/word2vec/Glove')
     parser.add_argument('--purpose', default='Competition', help='Experiment/Competition')
-    parser.add_argument('--level', default='word', help='word/char')
-    parser.add_argument('--max_features', default=11000, help='word/char')
+    parser.add_argument('--level', default='char', help='word/char')
+    parser.add_argument('--max_features', default=60000, help='word/char')
     parser.add_argument('--number_of_cv', default=10,type=int, help='the number of splits in cross-validation')
     parser.add_argument('--cv', default=False,action='store_true', help='whether cross-validation or not')
     parser.add_argument('--epoch',default=60,type=int,help='hyper parameter')
@@ -213,7 +217,8 @@ def main():
     parser.add_argument('--dimension',default=300,type=int,help='word embedding dimension')
     parser.add_argument('--dropout', default=0.5, type=float, help='the dropout rate')
     parser.add_argument('--max_sent_word_length', default=30, type=int, help='max sentence length')
-    parser.add_argument('-max_sent_char_length',default=50,type=int,help='max sentence char length')
+    parser.add_argument('--length_feature', default=1, type=int, help='length_feature')
+    parser.add_argument('--max_sent_char_length',default=50,type=int,help='max sentence char length')
     parser.add_argument('--filter_size',default=[3,4,5],type=int,nargs='+',help='hyper parameter')
     parser.add_argument('--number_of_filters',default=[100,100,100],type=int,nargs='+',help='hyper parameter')
     parser.add_argument('--saved_models', default=True, action='store_true',help='hyper parameter')
@@ -231,6 +236,7 @@ def main():
         'purpose': options.purpose,
         'number_of_cv': options.number_of_cv,
         'metric': options.metric,
+        'length_feature': options.length_feature,
         'error_analysis': options.error_analysis,
         'mode': options.mode,
         'dataset': options.dataset,
@@ -251,28 +257,15 @@ def main():
         'type': options.type,
         'threshold':options.threshold
     }
+    if(params['level']=='char'):
+        params['type']='rand'
     data,params = preprocess.getDataset(params)
     print('='*20+'INFORMATION'+'='*20)
-    print('MODEL: ',options.model)
-    print('MODE: ', options.mode)
-    print('DATSET: ', options.dataset)
-    print('WV: ', options.wv)
-    print('EPOCH: ', options.epoch)
-    print('BATCH_SIZE: ', options.batch_size)
-    print('LEARNING_RATE: ', options.learning_rate)
-    print('DIMENSION: ', options.dimension)
-    print('OPTIMIZER: ', options.optimizer)
-    print('FILTER_SIZE: ', options.filter_size)
-    print('NUMBER_OF_FILTERS: ', options.number_of_filters)
-    print('SAVED_MODELS: ', options.saved_models)
-    print('EARLY_STOPPING: ', options.early_stopping)
-    print('GPU: ', options.gpu)
-    print('VOCABULARY_WORD_SIZE: ', len(data['vocab_word']))
-    print('VOCABULARY_CHAR_SIZE: ', len(data['vocab_char']))
-    print('=' * 20 + 'INFORMATION' + '=' * 20)
+    for param in params:
+        print(param.upper()+': ',params[param])
     params['classes']=data['classes']
-    params['VOCABULARY_WORD_SIZE'] = len(data['vocab_word'])
-    params['VOCABULARY_CHAR_SIZE'] = len(data['vocab_char'])
+    params['VOCABULARY_word_SIZE'] = len(data['vocab_word'])
+    params['VOCABULARY_char_SIZE'] = len(data['vocab_char'])
     if(params['cv']==True):
         print('Using Cross Validation')
         kf=StratifiedKFold(n_splits=params['number_of_cv'],shuffle=True)
