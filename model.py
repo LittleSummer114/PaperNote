@@ -19,9 +19,12 @@ class CNN(nn.Module):
         self.epoch=kwargs['epoch']
         self.wv = kwargs['wv_maritx']
         self.dropout_rate = kwargs['dropout']
-        self.VOCABULARY_WORD_SIZE = kwargs['VOCABULARY_WORD_SIZE']
-        self.max_sent_length = kwargs['max_sent_word_length']
-        self.embedding=nn.Embedding(self.VOCABULARY_WORD_SIZE+2,self.dimension,padding_idx=self.VOCABULARY_WORD_SIZE+1)
+        self.level = kwargs['level']
+        self.VOCABULARY_SIZE = kwargs['VOCABULARY_'+self.level+'_SIZE']
+        self.max_sent_length = kwargs['max_sent_'+self.level+'_length']
+        self.length_feature = kwargs['length_feature']
+        self.max_sent_length+=self.length_feature
+        self.embedding=nn.Embedding(self.VOCABULARY_SIZE+2,self.dimension,padding_idx=self.VOCABULARY_SIZE+1)
         #self.embedding.weight=nn.Parameter(torch.LongTensor(self.wv))
         self.relu=nn.ReLU()
         self.channel=1
@@ -42,7 +45,7 @@ class CNN(nn.Module):
         return getattr(self,'con_{}'.format(i))
 
     def forward(self,input):
-        x=self.embedding(input).view(-1,1,self.dimension*self.max_sent_length)
+        x = self.embedding(input).view(-1, 1, self.dimension * self.max_sent_length)
         conv=[]
         for i in range(len(self.number_of_filters)):
             temp=self.con(i)(x)
