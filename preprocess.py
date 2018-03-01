@@ -30,6 +30,8 @@ def Sen2Index(data,params):
                         len_chars += 1
                         sentence_char.append(data['char_to_idx'][char])
             sentence_char += [len(data['vocab_char'])+1]*(params['max_sent_char_length']-(len_chars))
+            if(params['length_feature']==1):
+                sentence_char.append(len_chars)
             x.append(sentence_char)
         for label in data[name+'_y']:
             if(label in data['classes']):
@@ -45,6 +47,8 @@ def Sen2Index(data,params):
                 if (len(sentence_word) == params['max_sent_word_length']):
                     break
             sentence_word += [(len(data['vocab_word']) + 1)] * (params['max_sent_word_length'] - len(sent))
+            if (params['length_feature'] == 1):
+                sentence_word.append(len(sent))
             x.append(sentence_word)
         for c in data[name+'_y']:
             if(c in data['classes']):
@@ -166,25 +170,24 @@ def read_Travel(data):
         y=[]
         Discuss=[]
         filename = 'data/Travel/' + name + '.csv'
+        Travel_data = read_csv(filename, encoding='utf-8')
         if(name=='train'):
-            Travel_data = read_csv(filename,encoding='utf-8').drop_duplicates(['Discuss'])
+            Travel_data = Travel_data.drop_duplicates(['Discuss'])
         result = DataFrame()
-        for i in Travel_data['Id']:
-            string=SplitSentence(Travel_data[Travel_data.Id==i]['Discuss'].values[0],stopwords,vocab)
+        for idx,content in Travel_data.iterrows():
+            string=SplitSentence(content['Discuss'],stopwords,vocab)
             Discuss.append(string)
             x.append(string.split())
             if (name == 'test'):
                 y.append('NULL')
             else:
-                y.append(Travel_data[Travel_data.Id==i]['Score'].values[0])
+                y.append(content['Score'])
         result['Id'] = Travel_data['Id']
         result['Discuss'] = Discuss
         result['Score'] = y
         return x, y,result['Id'],result['Discuss']
     time1 = time.time()
     train_x,train_y ,train_id,train_Discuss=read('train')
-    time2 = time.time()
-    print(str(time2 - time1))
     test_x,test_y,test_id,test_Discuss=read('test')
     train_x_index = len(train_x)
     dev_x_index = train_x_index // 10
@@ -199,6 +202,8 @@ def read_Travel(data):
     data['train_Id'], data['train_Discuss'] = train_id[dev_x_index:train_x_index], train_Discuss[dev_x_index:train_x_index]
     data['dev_Id'], data['dev_Discuss'] = train_id[:dev_x_index], train_Discuss[:dev_x_index]
     data['test_Id'], data['test_Discuss'] = test_id, test_Discuss
+    time2 = time.time()
+    print('Load Dataset Time:', str(time2 - time1))
     return data
 
 def dataAugument():
@@ -370,9 +375,9 @@ def load_wc(data,params):
             if (word in word2vec.vocab):
                 wc_matrix.append(word2vec.word_vec(word).astype('float32'))
             else:
-                wc_matrix.append(np.random.uniform(-0.25, 0.25, 300).astype('float32'))
+                wc_matrix.append(np.random.uniform(-0.25, 0.25, params['dimension']).astype('float32'))
         # for unk and zero-padding
-        wc_matrix.append(np.random.uniform(-0.25, 0.25, 300).astype('float32'))
+        wc_matrix.append(np.random.uniform(-0.25, 0.25, params['dimension']).astype('float32'))
         wc_matrix.append(np.zeros(params['dimension']).astype('float32'))
         #wc_matrix.append(np.random.uniform(-0.25, 0.25, 300).astype('float32'))
         print('len(word_matrix):',len(wc_matrix))
@@ -382,7 +387,7 @@ def load_wc(data,params):
     return params
 
 def save_models(model,params):
-    path='models/{}_{}_{}.pkl'.format(params['dataset'],params['model'],params['time'])
+    path='models/{}_{}_{}_{}.pkl'.format(params['dataset'],params['model'],params['level'],params['time'])
     pickle.dump(model,open(path,'wb'))
     print('successful saved models !')
 
@@ -406,7 +411,7 @@ def getACC(prediction,true):
     return acc
 
 def load_models(params):
-    path = 'models/{}_{}.pkl'.format(params['dataset'], params['model'])
+    path = 'models/{}_{}_{}_{}.pkl'.format(params['dataset'], params['model'], params['level'], params['time'])
     print('model path',path)
     if(os.path.exists(path)):
         try:
